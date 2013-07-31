@@ -1,0 +1,7 @@
+{
+  "origin":"https://github.com/jashkenas/underscore.git",
+  "destination":"git@github.com:edjafarov/underscore.git",
+  "firstRef":"",
+  "validator":"validate.js",
+  "test":""
+}
