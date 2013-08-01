@@ -4,6 +4,7 @@ var util = require('util');
 var _ = require('underscore');
 var moment = require('moment');
 var async = require('async');
+var log = require('winston');
 // get all projects in folder
 //get first
 
@@ -19,10 +20,13 @@ function library(config){
   }
   
   var that = this;
+
   function checkLocalRepo(type){
     return fs.existsSync(that.config.dir + "/" + type);
   }
-
+  /*
+  * returns difference between origin and destination tags
+  */
   this.getDifference = function(cb){
     if(checkLocalRepo('origin')){
       that.pullRepo('origin', null, function(){
@@ -52,23 +56,18 @@ function library(config){
     }
   }
 
-  this.prepareRepo = function(diff, cb){
-    console.log("PREPARATION DONE");
-    cb();
-  }
-
-  this.validate = function(sha, cb){
-    if(!this.validator) return cb();
+  this.validate = function(sha, cbtrue, cbfalse){
+    if(!this.validator) return cbfalse();
     this.validator(this.config).validate(sha, function(valid){
-      if(!valid) return cb("none");
+      if(!valid) return cbfalse();
       if(!that.processor) throw new Error(' no processor to process ');
-      that.processor(that.config).process(sha, cb)
+      that.processor(that.config).process(sha, cbtrue)
     });
   }
 
   this.getASha = function(sha,inDir, cb){
     if(!inDir) inDir = 'origin';
-    console.log(util.format("get to ver %s %s", inDir, sha.version));
+    log.info(util.format("get to ver %s in  %s", sha.version, inDir));
     git.exec(['reset','--hard', sha.version], {cwd: this.config.dir + "/" + inDir}, done);
     function done(err){
       cb(sha);
@@ -83,57 +82,34 @@ function library(config){
 
 
   this.commitAndTag = function(inDir,ver ,cb){
+    log.info(util.format("git add all files in ", inDir));
     git.exec(["add", "."], {cwd: this.config.dir + "/" + inDir}, function(){
-      git.exec(["commit", "-am", ver.date+'" version:"'+ ver.version], 
+      log.info(util.format("commit files of %s version", ver.version));
+      git.exec(["commit", "-am", ver.date+'  version:'+ ver.version], 
       {cwd: that.config.dir + "/" + inDir}, committed)
     })
     function committed(){
+      log.info(util.format("tag files of %s version", ver.version));
       git.exec(["tag", "-a",ver.version,"-m",ver.date+'" version:"'+ ver.version], 
       {cwd: that.config.dir + "/" + inDir}, cb);
-
     }
   }
 
 
   this.resetHardTo = function(orig, inDir ,cb){
-    console.log('reset --hard to ' + orig);
+    log.info(util.format("reser %s to %s", inDir, orig));
     git.exec(["reset","--hard", orig], {cwd: this.config.dir + "/" + inDir}, cb)
   }
 
   this.push = function(orig, inDir ,cb){
-    console.log('push ' + orig);
+    log.info(util.format("push %s to %s", inDir, orig));
     git.exec(["push", orig], {cwd: this.config.dir + "/" + inDir}, function(){
       git.exec(["push", orig, "--tags"], {cwd: that.config.dir + "/" + inDir}, cb)
     })
   }
 
-
-
-  this.fetchFrom = function(orig, inDir ,cb){
-    console.log('fetch ' + orig);
-    git.exec(["fetch", orig], {cwd: this.config.dir + "/" + inDir}, cb)
-  }
-
-  this.getAllSha = function(type, pattern,cb){
-    //git rev-list --all --after="2012-09-27 13:37" before timestamp
-    console.log(util.format("getAllSha %s for a year", type));
-    var query = ['rev-list',
-    '--all'];
-    pattern && query.push("--pretty=format:"+pattern);
-    git.exec(
-    query, 
-    {
-      cwd: this.config.dir + "/" + type
-    },
-    gotShaData);
-    function gotShaData(data){
-      cb(data);
-    }
-  }
-
   this.getAllTags = function(type,cb){
-    //git log --tags --simplify-by-decoration --pretty="format:%ai %d"
-    console.log(util.format("getAllTags for %s", type));
+    log.info(util.format("get tags for %s", type));
     var query = ['log',
     '--tags',
     '--simplify-by-decoration',
@@ -159,18 +135,14 @@ function library(config){
 
   this.cloneRepo = function(type, toDir, cb){
     if(!this.config[type]) throw new Error('config ' + type +' has no repo');
-    console.log(util.format("clone %s %s",this.config[type], type));
+    log.info(util.format("clone %s %s",this.config[type], type));
     git.exec(["clone", this.config[type], toDir||type], {cwd: this.config.dir}, cb)
   }
+
   this.pullRepo = function(type, toDir, cb){
     if(!this.config[type]) throw new Error('config ' + type +' has no repo');
-    console.log(util.format("pull %s %s", type, this.config.dir + "/" + toDir||type));
+    log.info(util.format("pull %s %s", type, this.config.dir + "/" + toDir||type));
     git.exec(["pull", type], {cwd: this.config.dir + "/" + (toDir||type)}, cb)
-  }
-
-  this.addRemote = function(toDir, remote, cb){
-    console.log(util.format("add remote to  %s %s",toDir, remote));
-    git.exec(["remote","add",remote, this.config[remote]], {cwd: this.config.dir + "/" + toDir}, cb);
   }
 }
 
@@ -181,34 +153,32 @@ config.dir = dir;
 var current = new library(config);
 
 var repoDiff;
+
 current.getDifference(function(diff){
   repoDiff = diff;
-  console.log(diff[0].length, diff[1].length," difference: ", diff[2].length)
-  current.prepareRepo(diff, repoPrepared);
-});
-
-function repoPrepared(){
-  var diff = repoDiff[2];
-  //console.log(repoDiff);
-  //var sha = diff[diff.length - 1];
+  log.info(util.format("origin: %s, destination: %s, difference: %s", diff[0].length, diff[1].length, diff[2].length));
+  diff = diff[2];
   diff.reverse();
   async.eachSeries(diff, applyOneVer, function(){
     console.log("DONEALL");
   })
-}
+});
+
+
 function applyOneVer(ver, cb){
   current.getASha(ver, null, gotSha);
   function gotSha(ver){
-    current.validate(ver, validated);
-    function validated(result){
-      if(result == "none") return shaApplied(result);
+    current.validate(ver, valid, notvalid);
+    function valid(){
       current.applySha(ver, shaApplied)
     }
+    function notvalid(){
+      log.info(util.format("version %s PASSED", ver.version));
+      cb();
+    }
   }
-
   function shaApplied(result){
-    if(result=="none") {console.log("SHA passed");}
-    else{console.log("SHA applied");}
+    log.info(util.format("version %s APPLIED", ver.version));
     cb();
   }
 }

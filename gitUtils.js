@@ -14,7 +14,7 @@ module.exports = {
     });
 
     git.on('close', function (code) {
-        console.log('child process exited with code ' + code);
+//        console.log('child process exited with code ' + code);
         cb(output)
     });
   },
