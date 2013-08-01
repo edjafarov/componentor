@@ -3,5 +3,6 @@
   "destination":"git@github.com:edjafarov/underscore.git",
   "firstRef":"",
   "validator":"validate.js",
+  "processor":"processor.js",
   "test":""
 }

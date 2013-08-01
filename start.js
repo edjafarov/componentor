@@ -7,8 +7,6 @@ var async = require('async');
 // get all projects in folder
 //get first
 
-
-
 function library(config){
   this.config = config;
 
@@ -28,80 +26,74 @@ function library(config){
   this.getDifference = function(cb){
     if(checkLocalRepo('origin')){
       that.pullRepo('origin', null, function(){
-        that.getAllSha('origin',null, gotOrigSha);
+        that.getAllTags('origin', gotOrigSha);
       })
     }else{
       this.cloneRepo('origin', null, function(){
-        that.getAllSha('origin',null, gotOrigSha);
+        that.getAllTags('origin', gotOrigSha);
       })
     }
-    function gotOrigSha(origCommitsArray){
-      origCommitsArray =  _(origCommitsArray.split("\n")).without("");
+    function gotOrigSha(origTagsArray){
       if(checkLocalRepo('destination')){
         that.pullRepo('origin', 'destination', function(){
-          that.getAllSha('destination','{--%B--}', gotDestSha);
+          that.getAllTags('destination', gotDestSha);
         })
       }else{
         that.cloneRepo('destination', null, function(){
-          that.getAllSha('destination','{--%B--}', gotDestSha);
+          that.getAllTags('destination', gotDestSha);
         })
       }
-      function gotDestSha(destCommitsArray){
-        destCommitsArray = destCommitsArray.split(/[\n]commit\s/);
-        destCommitsArray = destCommitsArray.map(function(commit){
-          if(/cherry picked from commit ([^\)]*)/.test(commit)){
-            return commit.match(/cherry picked from commit ([^\)]*)/)[1];
-          }
-          return commit.split("\n")[0].replace("commit ","");
+      function gotDestSha(destTagsArray){
+        var diff = _(origTagsArray).reject(function(tag){
+          return !!_(destTagsArray).findWhere({ version: tag.version});
         });
-        cb([origCommitsArray, destCommitsArray, _.difference(origCommitsArray, destCommitsArray)]);
+        cb([origTagsArray, destTagsArray, diff]);
       }
     }
   }
 
   this.prepareRepo = function(diff, cb){
-    //cleanup
-    if(checkLocalRepo('working')){
-      repoExists()
-    }else{
-      this.cloneRepo('origin', 'working', repoExists)
-    }
-    function repoExists(){
-      that.addRemote('working', 'destination', remoteAdded);
-    }
-    function remoteAdded(){
-      that.fetchFrom('destination','working', dataFetched);
-    }
-    function dataFetched(){
-      that.resetHardTo('destination/master', 'working', repoIsReseted);
-    }
-    function repoIsReseted(){
-      console.log("PREPARATION DONE");
-      cb();
-    }
+    console.log("PREPARATION DONE");
+    cb();
   }
 
   this.validate = function(sha, cb){
     if(!this.validator) return cb();
     this.validator(this.config).validate(sha, function(valid){
-      if(valid) return cb();
-      if(!that.processor) throw new Error('current revision is invalid - and couldnt process');
-      that.processor(that.config).process(cb)
+      if(!valid) return cb("none");
+      if(!that.processor) throw new Error(' no processor to process ');
+      that.processor(that.config).process(sha, cb)
     });
   }
 
   this.getASha = function(sha,inDir, cb){
-    if(!inDir) inDir = 'working';
-    console.log(util.format("cherry-pick %s %s", inDir, sha));
-    git.exec(['cherry-pick','-x', sha], {cwd: this.config.dir + "/" + inDir}, done);
+    if(!inDir) inDir = 'origin';
+    console.log(util.format("get to ver %s %s", inDir, sha.version));
+    git.exec(['reset','--hard', sha.version], {cwd: this.config.dir + "/" + inDir}, done);
     function done(err){
       cb(sha);
     }
   }
 
-  this.applySha = function(cb){
-    this.push('destination','working' ,cb);
+  this.applySha = function(ver, cb){
+    this.commitAndTag('destination',ver ,function(){
+      that.push('origin','destination' ,cb);
+    });
   }
+
+
+  this.commitAndTag = function(inDir,ver ,cb){
+    git.exec(["add", "."], {cwd: this.config.dir + "/" + inDir}, function(){
+      git.exec(["commit", "-am", ver.date+'" version:"'+ ver.version], 
+      {cwd: that.config.dir + "/" + inDir}, committed)
+    })
+    function committed(){
+      git.exec(["tag", "-a",ver.version,"-m",ver.date+'" version:"'+ ver.version], 
+      {cwd: that.config.dir + "/" + inDir}, cb);
+
+    }
+  }
+
 
   this.resetHardTo = function(orig, inDir ,cb){
     console.log('reset --hard to ' + orig);
@@ -110,7 +102,9 @@ function library(config){
 
   this.push = function(orig, inDir ,cb){
     console.log('push ' + orig);
-    git.exec(["push", orig], {cwd: this.config.dir + "/" + inDir}, cb)
+    git.exec(["push", orig], {cwd: this.config.dir + "/" + inDir}, function(){
+      git.exec(["push", orig, "--tags"], {cwd: that.config.dir + "/" + inDir}, cb)
+    })
   }
 
 
@@ -134,6 +128,32 @@ function library(config){
     gotShaData);
     function gotShaData(data){
       cb(data);
+    }
+  }
+
+  this.getAllTags = function(type,cb){
+    //git log --tags --simplify-by-decoration --pretty="format:%ai %d"
+    console.log(util.format("getAllTags for %s", type));
+    var query = ['log',
+    '--tags',
+    '--simplify-by-decoration',
+    '--pretty=%ai %d'];
+    git.exec(
+    query,
+    {
+      cwd: this.config.dir + "/" + type
+    },
+    gotShaData);
+    function gotShaData(data){
+      var data = _(data.split("\n")).without("");
+      data = data.map(function(line){
+        var parsed = line.match(/^([^\(]*)\s{2}\((.*)\)/);
+        if (!parsed) return null;
+        var ver = parsed[2].match(/([\d\.]*)/);
+        if (!ver) return null;
+        return {date: parsed[1], version: ver[1]}
+      })
+      cb(_(data).without(null));
     }
   }
 
@@ -163,7 +183,7 @@ var current = new library(config);
 var repoDiff;
 current.getDifference(function(diff){
   repoDiff = diff;
-  console.log(diff[0].length, diff[1].length, diff[2].length)
+  console.log(diff[0].length, diff[1].length," difference: ", diff[2].length)
   current.prepareRepo(diff, repoPrepared);
 });
 
@@ -172,141 +192,23 @@ function repoPrepared(){
   //console.log(repoDiff);
   //var sha = diff[diff.length - 1];
   diff.reverse();
-  async.eachSeries(diff, applyOneSha, function(){
+  async.eachSeries(diff, applyOneVer, function(){
     console.log("DONEALL");
   })
 }
-function applyOneSha(sha, cb){
-  current.getASha(sha, null, gotSha);
-  function gotSha(sha){
-    current.validate(sha, validated);
+function applyOneVer(ver, cb){
+  current.getASha(ver, null, gotSha);
+  function gotSha(ver){
+    current.validate(ver, validated);
+    function validated(result){
+      if(result == "none") return shaApplied(result);
+      current.applySha(ver, shaApplied)
+    }
   }
 
-  function validated(){
-    current.applySha(shaApplied)
-  }
-
-  function shaApplied(){
-    console.log("SHA applied");
+  function shaApplied(result){
+    if(result=="none") {console.log("SHA passed");}
+    else{console.log("SHA applied");}
     cb();
   }
 }
-/*
-function project(config){
-  this.config = config;
-}
-
-
-project.prototype.checkLocalRepo = function(type){
-  return fs.existsSync(this.config.dir + "/" + type);
-}
-project.prototype.cloneRepo = function(type, cb){
-  if(!this.config[type]) throw new Error('config ' + type +' has no repo');
-  console.log(util.format("clone %s %s",this.config[type], type));
-  git.exec(["clone", this.config[type], type], {cwd: this.config.dir}, cb)
-}
-project.prototype.getHeadSha = function(type,cb){
-  console.log(util.format("rev-parse HEAD %s", type));
-  git.exec(["rev-parse","HEAD"], {cwd: this.config.dir + "/" + type}, gotHead);
-  function gotHead(data){
-    cb(data);
-  }
-
-}
-project.prototype.getAllSha = function(type, cb){
-  //git rev-list --all --after="2012-09-27 13:37" before timestamp
-  console.log(util.format("getAllSha %s %s", type));
-  git.exec(['rev-list','--all','--after="' + moment().subtract('years',1).format("YYYY-MM-DD h:mm") +'"'], {cwd: this.config.dir + "/" + type}, gotShaData);
-  function gotShaData(data){
-    cb(data.split("\n"));
-  }
-}
-
-project.prototype.resetToSha = function(type,sha,cb){
-  console.log(util.format("reset --hard %s %s", type, sha));
-  git.exec(['reset','--hard', sha], {cwd: this.config.dir + "/" + type}, done);
-  function done(err){
-    cb();
-  }
-}
-
-project.prototype.cherryPickSha = function(type,sha,cb){
-  console.log(util.format("cherry-pick %s %s", type, sha));
-  git.exec(['cherry-pick', sha], {cwd: this.config.dir + "/" + type}, done);
-  function done(err){
-    cb();
-  }
-}
-
-project.prototype.push = function(type,cb){
-  console.log(util.format("push %s", type));
-  git.exec(['push', type,'master'], {cwd: this.config.dir + "/" + type}, done);
-  function done(err){
-    cb();
-  }
-}
-project.prototype.addRemote = function(type, remote, cb){
-  console.log(util.format("add remote %s", type));
-  git.exec(['remote', type,'master'], {cwd: this.config.dir + "/" + type}, done);
-  function done(err){
-    cb();
-  }
-}
-*/
-/*
-var commitIds, head;
-
-if(current.checkLocalRepo('origin')){
-  current.getAllSha('origin', gotAllRevSha);
-}else{
-  current.cloneRepo('origin', function(err, stderr, stdout){
-    current.getAllSha('origin', gotAllRevSha);
-  })
-}
-
-function gotAllRevSha(arr){
-  commitIds = _(arr).without("");
-
-  if(current.checkLocalRepo('destination')){
-    current.getHeadSha('destination', gotHeadSha);
-  }else{
-    current.cloneRepo('destination', function(err, stderr, stdout){
-      current.getHeadSha('destination', gotHeadSha);
-    })
-  }
-
-}
-
-function gotHeadSha(arr){
-  head = arr;
-  var index = _(commitIds).indexOf(head);
-  if(!!~index){
-    commitIds = commitIds.slice(0, index - 1);
-  }
-}
-/*
-function (commitId){
-  current.resetTo()
-}
-*/
-
-/*
-var dest = current.getRepo('destination');
-
-var destHeadSha = current.getHeadSha('destination');
-var allOrigSha = current.getAllSha('origin');
-
-function isEmpty(dir){
-  console.log(readdirSync(dir));
-}
-*/
-// create temporary folders for origin and target
-// if they are created - pull both
-// get HEAD commit id of target
-// get all commitids from origin
-// form list of commits to be verified and updated
-// pull each commit and verify it
-// if verification fails, process it and verify again
-// if processing works out - commit and push to target
-// if it fails - mail out about failure 
-// and do not update the package untill forced

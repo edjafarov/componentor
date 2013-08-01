@@ -10,21 +10,10 @@ module.exports = function(config){
   return {
     validate: function(sha, cb){
       //git show -s --format=%ci 42362a274274e18bb03c840fc05bfdf6910c96f1
-      getShaDate(sha, 'working', gotShaDate);
-      function gotShaDate(date){
-        if(moment().diff(moment(date), 'days') > 365){
-          return cb(true);
-        }
-        cb(false);
+      if(moment().diff(moment(sha.date), 'days') > 365){
+        return cb(false);
       }
-    }
-  }
-  
-  function getShaDate(sha, toDir, cb){
-    console.log(util.format("getting sha date %s %s", sha, config.dir + "/" + toDir||type));
-    git.exec(["show", "-s", "--format=%ci", sha], {cwd: config.dir + "/" + toDir}, gotDateLine);
-    function gotDateLine(dateLine){
-      cb(new Date(dateLine));
+      cb(true);
     }
   }
 }
