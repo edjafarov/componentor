@@ -125,7 +125,7 @@ function library(config){
       data = data.map(function(line){
         var parsed = line.match(/^([^\(]*)\s{2}\((.*)\)/);
         if (!parsed) return null;
-        var ver = parsed[2].match(/([\d\.]*)/);
+        var ver = parsed[2].match(/([\d\.]+)/);
         if (!ver) return null;
         return {date: parsed[1], version: ver[1]}
       })
