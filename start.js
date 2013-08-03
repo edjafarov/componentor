@@ -18,6 +18,10 @@ function library(config){
   if(this.config.processor){
     this.processor = require(this.config.dir + "/" + this.config.processor);
   }
+ 
+  if(this.config.test){
+    this.test = require(this.config.dir + "/" + this.config.test);
+  }
   
   var that = this;
 
@@ -61,8 +65,15 @@ function library(config){
     this.validator(this.config).validate(sha, function(valid){
       if(!valid) return cbfalse();
       if(!that.processor) throw new Error(' no processor to process ');
-      that.processor(that.config).process(sha, cbtrue)
+      that.processor(that.config).process(sha, processed);
     });
+    function processed(err){
+      if(err) return cbtrue(err);
+      if(that.test) {
+        return that.test(config).run(cbtrue);
+      }
+      cbtrue();
+    }
   }
 
   this.getASha = function(sha,inDir, cb){
@@ -159,8 +170,9 @@ current.getDifference(function(diff){
   log.info(util.format("origin: %s, destination: %s, difference: %s", diff[0].length, diff[1].length, diff[2].length));
   diff = diff[2];
   diff.reverse();
-  async.eachSeries(diff, applyOneVer, function(){
-    console.log("DONEALL");
+  async.eachSeries(diff, applyOneVer, function(err){
+    if(err) return log.error(err);
+    log.info("All updates done");
   })
 });
 
@@ -169,7 +181,8 @@ function applyOneVer(ver, cb){
   current.getASha(ver, null, gotSha);
   function gotSha(ver){
     current.validate(ver, valid, notvalid);
-    function valid(){
+    function valid(err){
+      if(err) return cb(err);
       current.applySha(ver, shaApplied)
     }
     function notvalid(){

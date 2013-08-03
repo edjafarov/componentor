@@ -26,6 +26,7 @@ module.exports = function(config){
       if(fs.existsSync(origin + "package.json")){
         var packageJson = require(origin + "package.json");
       }
+      if(!fs.existsSync(origin + "underscore.js")) return cb(new Error('no underscore.js found'))
       fs.copy(origin + 'underscore.js', destination + "index.js", function(){
         fs.outputJson(destination + "component.json", pkg, cb) 
       });
