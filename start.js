@@ -158,7 +158,7 @@ function library(config){
 }
 
 
-var dir = __dirname + "/projects/underscore";
+var dir = __dirname + "/projects/backbone";
 var config = require(dir);
 config.dir = dir;
 var current = new library(config);

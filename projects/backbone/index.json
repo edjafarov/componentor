@@ -4,5 +4,5 @@
   "firstRef":"",
   "validator":"validate.js",
   "processor":"processor.js",
-  "test":""
+  "test":"test.js"
 }
