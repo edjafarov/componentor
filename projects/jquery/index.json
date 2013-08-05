@@ -1,0 +1,8 @@
+{
+  "origin":"https://github.com/jquery/jquery.git",
+  "destination":"git@github.com:jquerycomp/jquery.git",
+  "firstRef":"",
+  "validator":"validate.js",
+  "processor":"processor.js",
+  "test":"test.js"
+}

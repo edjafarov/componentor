@@ -81,7 +81,9 @@ function library(config){
     log.info(util.format("get to ver %s in  %s", sha.version, inDir));
     git.exec(['reset','--hard', sha.version], {cwd: this.config.dir + "/" + inDir}, done);
     function done(err){
-      cb(sha);
+      that.submoduleUpdate(inDir, function(){
+        cb(sha);
+      })
     }
   }
 
@@ -136,7 +138,7 @@ function library(config){
       data = data.map(function(line){
         var parsed = line.match(/^([^\(]*)\s{2}\((.*)\)/);
         if (!parsed) return null;
-        var ver = parsed[2].match(/([\d\.]+)/);
+        var ver = parsed[2].match(/(\d+\.\d+\.\d+)/);
         if (!ver) return null;
         return {date: parsed[1], version: ver[1]}
       })
@@ -144,10 +146,24 @@ function library(config){
     }
   }
 
+  this.submoduleInit = function(toDir, cb){
+    log.info(util.format("submodule init %s", toDir));
+    git.exec(["submodule", "init"], {cwd: this.config.dir + "/" + toDir}, cb)
+  }
+
+  this.submoduleUpdate = function(toDir, cb){
+    log.info(util.format("submodule update %s", toDir));
+    git.exec(["submodule", "update"], {cwd: this.config.dir + "/" + toDir}, cb)
+  }
+
+
+
   this.cloneRepo = function(type, toDir, cb){
     if(!this.config[type]) throw new Error('config ' + type +' has no repo');
     log.info(util.format("clone %s %s",this.config[type], type));
-    git.exec(["clone", this.config[type], toDir||type], {cwd: this.config.dir}, cb)
+    git.exec(["clone", this.config[type], toDir||type], {cwd: this.config.dir}, function(){
+      that.submoduleInit(toDir||type, cb);
+    })
   }
 
   this.pullRepo = function(type, toDir, cb){
@@ -158,7 +174,7 @@ function library(config){
 }
 
 
-var dir = __dirname + "/projects/backbone";
+var dir = __dirname + "/projects/jquery";
 var config = require(dir);
 config.dir = dir;
 var current = new library(config);
