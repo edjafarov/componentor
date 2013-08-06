@@ -7,7 +7,6 @@ var async = require('async');
 var log = require('winston');
 // get all projects in folder
 //get first
-
 function library(config){
   this.config = config;
 
@@ -53,6 +52,9 @@ function library(config){
       }
       function gotDestSha(destTagsArray){
         var diff = _(origTagsArray).reject(function(tag){
+          if(that.config.ignore && !!~that.config.ignore.indexOf(tag.version)){
+            return true;
+          }
           return !!_(destTagsArray).findWhere({ version: tag.version});
         });
         cb([origTagsArray, destTagsArray, diff]);
@@ -169,7 +171,9 @@ function library(config){
   this.pullRepo = function(type, toDir, cb){
     if(!this.config[type]) throw new Error('config ' + type +' has no repo');
     log.info(util.format("pull %s %s", type, this.config.dir + "/" + toDir||type));
-    git.exec(["pull", type], {cwd: this.config.dir + "/" + (toDir||type)}, cb)
+    git.exec(["reset", "--hard","HEAD"], {cwd: this.config.dir + "/" + (toDir||type)}, function(){
+      git.exec(["pull", type], {cwd: that.config.dir + "/" + (toDir||type)}, cb)
+    });
   }
 }
 

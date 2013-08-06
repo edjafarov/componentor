@@ -1,0 +1,29 @@
+{
+  "name": "componentor",
+  "version": "0.0.0",
+  "description": "componentor ===========",
+  "main": "gitUtils.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/edjafarov/componentor"
+  },
+  "author": "",
+  "license": "BSD",
+  "bugs": {
+    "url": "https://github.com/edjafarov/componentor/issues"
+  },
+  "dependencies": {
+    "async": "~0.2.9",
+    "underscore": "~1.5.1",
+    "moment": "~2.1.0",
+    "winston": "~0.7.2",
+    "fs-extra": "~0.6.3",
+    "bower": "~1.1.0",
+    "contextify": "~0.1.6",
+    "grunt-cli": "~0.1.9",
+    "jsdom": "~0.8.3"
+  }
+}
