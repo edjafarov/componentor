@@ -155,7 +155,7 @@ function library(config){
 
   this.submoduleUpdate = function(toDir, cb){
     log.info(util.format("submodule update %s", toDir));
-    git.exec(["submodule", "update"], {cwd: this.config.dir + "/" + toDir}, cb)
+    git.exec(["submodule", "update", "--init","--recursive"], {cwd: this.config.dir + "/" + toDir}, cb)
   }
 
 
@@ -210,7 +210,10 @@ function applyOneVer(ver, cb){
       cb();
     }
   }
-  function shaApplied(result){
+  function shaApplied(err){
+    if(err){
+      return log.error(err);
+    }
     log.info(util.format("version %s APPLIED", ver.version));
     cb();
   }

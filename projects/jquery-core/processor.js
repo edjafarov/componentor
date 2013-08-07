@@ -5,6 +5,7 @@ var _ = require('underscore');
 var moment = require('moment');
 var bower = require('bower');
 var spawn = require('child_process').spawn;
+var async = require('async');
 
 module.exports = function(config){
   //check files exists
@@ -15,7 +16,7 @@ module.exports = function(config){
     process: function(sha, cb){
       
       var pkg ={
-        "name": "jquery",
+        "name": "jquerycomp/jquery-core",
         "description": "JavaScript library for DOM operations",
         "homepage": "http://jquery.com",
         "author": "jQuery Foundation and other contributors",
@@ -29,6 +30,29 @@ module.exports = function(config){
           "index.js"
         ]
       }
+      var coreFiles = [
+        "src/core.js",
+        ["src/selector.js", "src/selector-sizzle.js"],
+        "src/callbacks.js",
+        "src/deferred.js",
+        "src/support.js",
+        "src/data.js",
+        "src/queue.js",
+        "src/attributes.js",
+        "src/event.js",
+        "src/traversing.js",
+        "src/manipulation.js",
+        "src/serialize.js"
+      ].map(function(el){
+        if(_(el).isArray()){
+          return el.map(function(el){
+            return origin + el;
+          })
+        }
+        return origin + el;
+      });
+
+
       var install = bower.commands.install();
       install.on('log',function(data){console.log(data)})
       install.on('error',function(data){console.log(data)})
@@ -48,27 +72,33 @@ module.exports = function(config){
           fs.writeJson(origin + "package.json", pkg, pkgDone);
         }
         function pkgDone(){
-          npm(["install"],{cwd: origin}, packagesInstalled);
-        }
-      }
-
-      function packagesInstalled(){
-        grunt(['selector'], {cwd: origin}, patchJquery);
-        function patchJquery(){
-          fs.readFile(origin + 'dist/jquery.js', function(err, data){
-            var newJquery = data.toString().replace(/\nwindow.jQuery = .+?\n/,"\nmodule.exports = jQuery;\n");
-            fs.outputFile(origin + 'dist/jquery.js', newJquery, jqueryPatched);
+          npm(["install"],{cwd: origin}, function(){
+            grunt(['selector'], {cwd: origin}, packagesInstalled);
           });
         }
       }
 
-      function jqueryPatched(){
-        fs.copy(origin + 'dist/jquery.js', destination + "index.js", function(){
-          fs.outputJson(destination + "component.json", pkg, function(){
-            fs.remove(origin + 'dist', function(){
-              fs.remove(origin + 'node_modules', cb);
-            });
+      function packagesInstalled(){
+        function readFile(el, cb){
+          if(_(el).isArray()){
+            return _(el).find(function(file){
+              if(fs.existsSync(file)){
+                fs.readFile(file, cb);
+                return true;
+              }
+            })
+          }
+          fs.readFile(el, cb);
+        }
+        async.mapSeries(coreFiles, readFile, function(err, results){
+          results = _(results).map(function(el){
+            return el.toString();
           })
+          results.push("module.exports = jQuery;");
+          var src = results.join("\n");
+          fs.writeFile(destination + "index.js", src, function(){
+            fs.outputJson(destination + "component.json", pkg, cb)
+          });
         });
       }
     }
@@ -99,7 +129,7 @@ function grunt(cmd, options, cb){
   var output = "";
   git.stdout.on('data', function (data) {
       output+=data;
-      //console.log('stdout: ' + data);
+//      console.log('stdout: ' + data);
   });
 
   git.stderr.on('data', function (data) {
@@ -107,7 +137,7 @@ function grunt(cmd, options, cb){
   });
 
   git.on('close', function (code) {
-//        console.log('child process exited with code ' + code);
+ //       console.log('child process exited with code ' + code);
       cb(output)
   });
 }
