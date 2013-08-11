@@ -1,6 +1,6 @@
 {
   "origin":"https://github.com/jquery/jquery.git",
-  "destination":"git@github.com:jquerycomp/ajax-script.git",
+  "destination":"git@github.com:jqcomp/ajax-script.git",
   "firstRef":"",
   "validator":"validate.js",
   "processor":"processor.js",

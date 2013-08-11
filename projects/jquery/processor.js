@@ -53,7 +53,7 @@ module.exports = function(config){
       }
 
       function packagesInstalled(){
-        grunt(['selector'], {cwd: origin}, patchJquery);
+        grunt(['selector','build'], {cwd: origin}, patchJquery);
         function patchJquery(){
           fs.readFile(origin + 'dist/jquery.js', function(err, data){
             var newJquery = data.toString().replace(/\nwindow.jQuery = .+?\n/,"\nmodule.exports = jQuery;\n");

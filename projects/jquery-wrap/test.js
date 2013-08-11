@@ -6,7 +6,7 @@ module.exports = function(config){
   return {
     run: function(cb){
       var source = fs.readFileSync(destination + "index.js");
-      
+      return cb();      
       var modulesReq = {};
       var before = "window.module = module = {exports:{}, required:{}};function require(mod){module.required[mod]=true; return {extend:function(){},fn:{extend:function(){}}}};"
       jsdom.env({html:"<html><head></head><body></body></html>",src:[before, source],

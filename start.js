@@ -176,45 +176,56 @@ function library(config){
     });
   }
 }
+var directories = fs.readdirSync(__dirname + '/projects');
 
-
-var dir = __dirname + "/projects/jquery";
-var config = require(dir);
-config.dir = dir;
-var current = new library(config);
-
-var repoDiff;
-
-current.getDifference(function(diff){
-  repoDiff = diff;
-  log.info(util.format("origin: %s, destination: %s, difference: %s", diff[0].length, diff[1].length, diff[2].length));
-  diff = diff[2];
-  diff.reverse();
-  async.eachSeries(diff, applyOneVer, function(err){
-    if(err) return log.error(err);
-    log.info("All updates done");
-  })
+async.eachSeries(directories, doProject, function(err){
+  if(err) throw new Error(err);
+  console.log("PROJECTS DONE");
 });
+//doProject('jquery-ajax-xhr')
+
+function doProject(d, done){
+  var dir = __dirname + "/projects/" + d;
+  var config = require(dir);
+  config.dir = dir;
+  var current = new library(config);
+
+  var repoDiff;
+
+  current.getDifference(function(diff){
+    repoDiff = diff;
+    log.info(util.format("origin: %s, destination: %s, difference: %s", diff[0].length, diff[1].length, diff[2].length));
+    diff = diff[2];
+    diff.reverse();
+    async.eachSeries(diff, applyOneVer, function(err){
+      if(err) return log.error(err);
+      log.info("All updates done");
+      done();
+    })
+  });
 
 
-function applyOneVer(ver, cb){
-  current.getASha(ver, null, gotSha);
-  function gotSha(ver){
-    current.validate(ver, valid, notvalid);
-    function valid(err){
-      if(err) return cb(err);
-      current.applySha(ver, shaApplied)
+  function applyOneVer(ver, cb){
+    current.getASha(ver, null, gotSha);
+    function gotSha(ver){
+      current.validate(ver, valid, notvalid);
+      function valid(err){
+        if(err) return cb(err);
+        current.applySha(ver, shaApplied)
+      }
+      function notvalid(){
+        log.info(util.format("version %s PASSED", ver.version));
+        cb();
+      }
     }
-    function notvalid(){
-      log.info(util.format("version %s PASSED", ver.version));
+    function shaApplied(err){
+      if(err){
+        return log.error(err);
+      }
+      log.info(util.format("version %s APPLIED", ver.version));
       cb();
     }
   }
-  function shaApplied(err){
-    if(err){
-      return log.error(err);
-    }
-    log.info(util.format("version %s APPLIED", ver.version));
-    cb();
-  }
 }
+
+//curl -u 'edjafarov' https://api.github.com/orgs/bscomp/repos -d '{"name":"test"}'

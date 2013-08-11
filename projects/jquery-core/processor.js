@@ -16,7 +16,7 @@ module.exports = function(config){
     process: function(sha, cb){
       
       var pkg ={
-        "name": "jquerycomp/jquery-core",
+        "name": "jqcomp/core",
         "description": "JavaScript library for DOM operations",
         "homepage": "http://jquery.com",
         "author": "jQuery Foundation and other contributors",

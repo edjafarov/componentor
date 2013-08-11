@@ -16,7 +16,7 @@ module.exports = function(config){
     process: function(sha, cb){
       var filename = origin + "src/ajax/jsonp.js";
       var pkg ={
-        "name": "jquerycomp/ajax-jsonp",
+        "name": "jqcomp/ajax-jsonp",
         "description": "JavaScript library for DOM operations",
         "homepage": "http://jquery.com",
         "author": "jQuery Foundation and other contributors",
@@ -26,17 +26,17 @@ module.exports = function(config){
         },
         "version": sha.version,
         "dependencies":{
-          "jquerycomp/jquery-core": sha.version,
-          "jquerycomp/ajax": sha.version,
-          "jquerycomp/ajax-script": sha.version
+          "jqcomp/core": sha.version,
+          "jqcomp/ajax": sha.version,
+          "jqcomp/ajax-script": sha.version
         },
         "main": "index.js",
         "scripts": [
           "index.js"
         ]
       }
-      var src = [fs.readFileSync(filename)];
-      src.unshift("var jQuery = require('jquerycomp/ajax-script')");
+      var src = [injectVarsFromDep([origin + "src/core.js",origin + "src/ajax.js"],fs.readFileSync(filename))];
+      src.unshift("var jQuery = require('jqcomp/ajax-script')");
       src.push("module.exports = jQuery;");
       src = src.join("\n");
       fs.writeFile(destination + "index.js", src, function(){
@@ -44,6 +44,22 @@ module.exports = function(config){
       });
     }
   }
+}
+
+function injectVarsFromDep(depsfiles, src){
+  src = src.toString();
+  var varCommon = "";
+  depsfiles.forEach(function(depfile){
+    var depsrc = fs.readFileSync(depfile).toString();
+    var vars = depsrc.match(/\n\t([^=\n\t\(]+)\s=\s([^\n|&]+)./g);
+    vars.forEach(function(v){
+      var varmix = v.match(/\n\t([^=\n\t\(]+)\s=\s([^\n]+)./);
+      if(varmix && !!~src.indexOf(varmix[1]) && varmix[1] !== 'jQuery' && !~varmix[2].indexOf("function") && !~varmix[2].indexOf("var ")){
+        varCommon += "var " + varmix[1] + " = " + varmix[2] + ";"
+      }
+    });
+  })
+  return varCommon + "\n" + src;
 }
 
 

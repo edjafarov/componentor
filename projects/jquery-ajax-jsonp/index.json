@@ -1,6 +1,6 @@
 {
   "origin":"https://github.com/jquery/jquery.git",
-  "destination":"git@github.com:jquerycomp/ajax-jsonp.git",
+  "destination":"git@github.com:jqcomp/ajax-jsonp.git",
   "firstRef":"",
   "validator":"validate.js",
   "processor":"processor.js",
