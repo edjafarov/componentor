@@ -21,7 +21,7 @@ module.exports = function(config){
       if(!sandbox.exports.VERSION){
         return cb(new Error('couldnt find VERSION in exports test failed'));
       }
-      if(!modulesReq['underscore']){
+      if(!modulesReq['edjafarov-underscore']){
         return cb(new Error('underscore was not required as rependency'));
       }
       return cb();

@@ -5,6 +5,7 @@ var _ = require('underscore');
 var moment = require('moment');
 var async = require('async');
 var log = require('winston');
+log = console;
 // get all projects in folder
 //get first
 function library(config){
@@ -229,3 +230,7 @@ function doProject(d, done){
 }
 
 //curl -u 'edjafarov' https://api.github.com/orgs/bscomp/repos -d '{"name":"test"}'
+/*
+git push --tags origin && \
+git tag | xargs -n1 git tag -d && \
+git fetch --tags*/

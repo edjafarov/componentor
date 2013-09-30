@@ -40,9 +40,16 @@ module.exports = function(config){
           pkg.dependencies['edjafarov/underscore'] = ver[1];
         }
       }
+      fs.readFile(origin + 'backbone.js', function(err, data){
+        var underscore = data.toString().replace(/underscore/g, "edjafarov-underscore");
+        fs.writeFile(destination + "index.js", underscore, function(){
+          fs.outputJson(destination + "component.json", pkg, cb) 
+        });
+      })
+      /*
       fs.copy(origin + 'backbone.js', destination + "index.js", function(){
-        fs.outputJson(destination + "component.json", pkg, cb) 
-      });
+        
+      });*/
     }
   }
 }
