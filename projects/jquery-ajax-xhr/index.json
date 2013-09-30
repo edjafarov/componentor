@@ -1,9 +1,0 @@
-{
-  "origin":"https://github.com/jquery/jquery.git",
-  "destination":"git@github.com:jqcomp/ajax-xhr.git",
-  "firstRef":"",
-  "validator":"validate.js",
-  "processor":"processor.js",
-  "test":"test.js",
-  "ignore":["1.9.0","1.9.1"]
-}
